@@ -13,15 +13,11 @@ class RouteStatistic extends Model implements RequestLoggerInterface
 {
     use HasFactory;
 
-    protected $guarded = [
-        'id',
-    ];
+    protected $guarded = ['id'];
 
     public $timestamps = false;
 
-    protected $dates = [
-        'date',
-    ];
+    protected $dates = ['date'];
 
     //======================================================================
     // ACCESSORS
@@ -39,46 +35,43 @@ class RouteStatistic extends Model implements RequestLoggerInterface
     // RELATIONS
     //======================================================================
 
-    public function user(): BelongsTo
+    public function account(): BelongsTo
     {
         return $this->belongsTo(config('auth.providers.users.model'));
     }
 
-    public function team(): BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo('App\\Models\\Team');
+        return $this->belongsTo('App\\User');
     }
 
     //======================================================================
     // METHODS
     //======================================================================
 
-    public function log(Request $request, $response, ?int $time = null, ?int $memory = null): void
-    {
-        if ($route = optional($request->route())->getName() ?? optional($request->route())->uri()) {
-            static::firstOrCreate([
-                'user_id' => optional($request->user())->getKey(),
-                'team_id' => optional($this->getRequestTeam($request))->getKey(),
-                'method'  => $request->getMethod(),
-                'route'   => $route,
-                'status'  => $response->getStatusCode(),
-                'ip'      => $request->ip(),
-                'date'    => $this->getDate(),
-            ], ['counter' => 0])->increment('counter', 1);
+    public function log(
+        Request $request,
+        $response,
+        ?int $time = null,
+        ?int $memory = null
+    ): void {
+        if (
+            $route =
+                optional($request->route())->getName() ?? optional($request->route())->uri()
+        ) {
+            static::firstOrCreate(
+                [
+                    'account_id' => optional($request->user())->id,
+                    'user_id' => optional($request->user())->context_id,
+                    'method' => $request->getMethod(),
+                    'route' => $route,
+                    'status' => $response->getStatusCode(),
+                    'ip' => $request->ip(),
+                    'date' => $this->getDate(),
+                ],
+                ['counter' => 0]
+            )->increment('counter', 1);
         }
-    }
-
-    protected function getRequestTeam(Request $request): ?Model
-    {
-        if ($request->route('team') instanceof Model) {
-            return $request->route('team');
-        }
-
-        if ($user = $request->user()) {
-            return method_exists($user, 'currentTeam') ? $user->currentTeam : null;
-        }
-
-        return null;
     }
 
     protected function getDate()
@@ -86,7 +79,7 @@ class RouteStatistic extends Model implements RequestLoggerInterface
         $date = Date::now();
         $aggregate = config('route-statistics.aggregate');
 
-        if ($aggregate && ! in_array($aggregate, ['YEAR', 'MONTH', 'DAY', 'HOUR', 'MINUTE'])) {
+        if ($aggregate && !in_array($aggregate, ['YEAR', 'MONTH', 'DAY', 'HOUR', 'MINUTE'])) {
             throw new \OutOfBoundsException('Invalid date aggregation');
         }
 
